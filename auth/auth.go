@@ -11,5 +11,10 @@ func AddUser(u User, db Database) error {
 	if exists {
 		return fmt.Errorf("A user with email %v already exists", u.Email)
 	}
+
+	addErr := db.AddUser(u)
+	if addErr != nil {
+		return addErr
+	}
 	return nil
 }
