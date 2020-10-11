@@ -19,18 +19,20 @@ func (err WrapError) HasInnerError() bool {
 	return nil != err.Inner
 }
 
-func Wrap(err error, message string, msgArgs ...interface{}) WrapError {
-	return WrapError{
+func Wrap(err error, message string, msgArgs ...interface{}) *WrapError {
+	result := WrapError{
 		Inner:      err,
 		Message:    fmt.Sprintf(message, msgArgs...),
 		StackTrace: string(debug.Stack()),
 	}
+	return &result
 }
 
-func Make(message string, msgArgs ...interface{}) WrapError {
-	return WrapError{
+func Make(message string, msgArgs ...interface{}) *WrapError {
+	result := WrapError{
 		Inner:      nil,
 		Message:    fmt.Sprintf(message, msgArgs...),
 		StackTrace: string(debug.Stack()),
 	}
+	return &result
 }

@@ -76,7 +76,7 @@ func TestAddUserUserIsAdded(t *testing.T) {
 	err := auth.AddUser(newUser, &db)
 
 	require.Nil(t, err)
-	exists, err := db.UserExists("e@example.com")
+	exists, _ := db.UserExists("e@example.com")
 	require.True(t, exists)
 }
 
