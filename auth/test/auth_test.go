@@ -49,13 +49,17 @@ func getTestDB(users []auth.User, existErr error, addError error, getError error
 	return result
 }
 
+func noPwCheck_AddUser(u auth.User, db auth.Database) error {
+	return auth.AddUser(u, db, func(_ string) error { return nil })
+}
+
 func TestAddUserExists(t *testing.T) {
 	db := getTestDB([]auth.User{
 		auth.User{Email: "e@example.com", Password: "password"}},
 		nil, nil, nil)
 
 	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	err := auth.AddUser(newUser, &db)
+	err := noPwCheck_AddUser(newUser, &db)
 
 	require.NotNil(t, err)
 }
@@ -64,7 +68,7 @@ func TestAddUserDBError(t *testing.T) {
 	db := getTestDB([]auth.User{}, errors.New("some user error"), nil, nil)
 
 	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	err := auth.AddUser(newUser, &db)
+	err := noPwCheck_AddUser(newUser, &db)
 
 	require.NotNil(t, err)
 }
@@ -73,7 +77,7 @@ func TestAddUserUserIsAdded(t *testing.T) {
 	db := getTestDB([]auth.User{}, nil, nil, nil)
 
 	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	err := auth.AddUser(newUser, &db)
+	err := noPwCheck_AddUser(newUser, &db)
 
 	require.Nil(t, err)
 	exists, _ := db.UserExists("e@example.com")
@@ -84,7 +88,17 @@ func TestAddUserErrorOnAdd(t *testing.T) {
 	db := getTestDB([]auth.User{}, nil, errors.New("an add error"), nil)
 
 	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	err := auth.AddUser(newUser, &db)
+	err := noPwCheck_AddUser(newUser, &db)
 
 	require.NotNil(t, err)
+}
+
+func TestAddUserUserBadPassword(t *testing.T) {
+	db := getTestDB([]auth.User{}, nil, nil, nil)
+
+	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	err := auth.AddUser(newUser, &db, func(_ string) error { return errors.New("because it sucks") })
+
+	require.NotNil(t, err)
+	require.Contains(t, err.Message, "because it sucks")
 }
