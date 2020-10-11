@@ -4,14 +4,7 @@ import (
 	e "github.com/MikeAWilliams/white_card/wraperr"
 )
 
-type PasswordValidator func(s string) error
-
-func AddUser(u User, db Database, pwIsValid PasswordValidator) *e.WrapError {
-	pwErr := pwIsValid(u.Password)
-	if nil != pwErr {
-		return e.Wrap(pwErr, "The password is invalid %v", pwErr.Error())
-	}
-
+func AddUser(u User, db Database) *e.WrapError {
 	exists, err := db.UserExists(u.Email)
 	if err != nil {
 		return e.Wrap(err, "Database error during UserExists")
