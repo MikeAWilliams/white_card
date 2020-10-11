@@ -1,6 +1,10 @@
 package testauth
 
-import "github.com/MikeAWilliams/white_card/auth"
+import (
+	"errors"
+
+	"github.com/MikeAWilliams/white_card/auth"
+)
 
 type testDB struct {
 	table           []auth.User
@@ -10,7 +14,12 @@ type testDB struct {
 }
 
 func (db *testDB) GetUser(email string) (auth.User, error) {
-	return auth.User{}, nil
+	for _, usr := range db.table {
+		if usr.Email == email {
+			return usr, nil
+		}
+	}
+	return auth.User{}, errors.New("User does not exist")
 }
 
 func (db *testDB) AddUser(user auth.User) error {

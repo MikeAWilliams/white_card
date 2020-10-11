@@ -33,7 +33,7 @@ type pwEncryptSpy struct {
 
 func (pw *pwEncryptSpy) Encrypt(password string) (string, error) {
 	pw.lastPassword = password
-	return password, pw.result
+	return password + "encrypted", pw.result
 }
 
 type testDependencies struct {
@@ -75,6 +75,10 @@ func TestHappyPath(t *testing.T) {
 	require.Equal(t, newUser.Email, dep.emSpy.lastAddress)
 	require.Contains(t, dep.emSpy.lastBody, "/api/v1/auth/verify?")
 	require.Contains(t, dep.emSpy.lastBody, newUser.Email)
+
+	require.Equal(t, newUser.Password, dep.pweSpy.lastPassword)
+	resultUser, _ := dep.db.GetUser(newUser.Email)
+	require.Contains(t, resultUser.Password, "encrypted")
 }
 
 func TestAddUserError(t *testing.T) {

@@ -46,6 +46,11 @@ func Signup(u User, dependencies SignupDependencies) *e.WrapError {
 		return e.Wrap(err, "There is an error with the password %v", err.Error())
 	}
 
+	encryptedPw, pwEncryptError := dependencies.Pwe.Encrypt(u.Password)
+	if pwEncryptError != nil {
+		return e.Wrap(pwEncryptError, "There weas an error encrypting the password")
+	}
+	u.Password = encryptedPw
 	addUserError := AddUser(u, dependencies.Db)
 
 	if addUserError != nil {
