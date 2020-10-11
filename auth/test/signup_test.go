@@ -2,6 +2,7 @@ package testauth
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/MikeAWilliams/white_card/auth"
@@ -19,49 +20,90 @@ func (em *emailSpy) Send(address string, subject string, body string) error {
 	em.lastAddress = address
 	em.lastSubject = subject
 	em.lastBody = body
+
+	fmt.Println(em.lastAddress)
+
 	return em.result
 }
 
-func TestHappyPath(t *testing.T) {
-	db := getTestDB(nil, nil, nil, nil)
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	emSpy := emailSpy{}
+type pwEncryptSpy struct {
+	lastPassword string
+	result       error
+}
 
-	err := auth.Signup(newUser, &db, func(_ string) error { return nil }, &emSpy)
+func (pw *pwEncryptSpy) Encrypt(password string) (string, error) {
+	pw.lastPassword = password
+	return password, pw.result
+}
+
+type testDependencies struct {
+	dep auth.SignupDependencies
+
+	db     *testDB
+	emSpy  *emailSpy
+	pweSpy *pwEncryptSpy
+}
+
+func getTestDependencies() testDependencies {
+	result := testDependencies{}
+
+	emSpy := emailSpy{}
+	result.emSpy = &emSpy
+	pwSpy := pwEncryptSpy{}
+	result.pweSpy = &pwSpy
+
+	db := getTestDB(nil, nil, nil, nil)
+	result.db = &db
+	result.dep.Db = &db
+
+	result.dep.PwValidator = func(_ string) error { return nil }
+	result.dep.Email = result.emSpy
+	result.dep.Pwe = result.pweSpy
+
+	return result
+}
+
+func TestHappyPath(t *testing.T) {
+	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	dep := getTestDependencies()
+
+	err := auth.Signup(newUser, dep.dep)
 
 	require.Nil(t, err)
-	exists, _ := db.UserExists(newUser.Email)
+	exists, _ := dep.dep.Db.UserExists(newUser.Email)
 	require.True(t, exists)
-	require.Equal(t, newUser.Email, emSpy.lastAddress)
-	require.Contains(t, emSpy.lastBody, "/api/v1/auth/verify?")
-	require.Contains(t, emSpy.lastBody, newUser.Email)
+	require.Equal(t, newUser.Email, dep.emSpy.lastAddress)
+	require.Contains(t, dep.emSpy.lastBody, "/api/v1/auth/verify?")
+	require.Contains(t, dep.emSpy.lastBody, newUser.Email)
 }
-func TestAddUserError(t *testing.T) {
-	db := getTestDB(nil, errors.New("bad"), nil, nil)
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	emSpy := emailSpy{}
 
-	err := auth.Signup(newUser, &db, func(_ string) error { return nil }, &emSpy)
+func TestAddUserError(t *testing.T) {
+	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	dep := getTestDependencies()
+	dep.db.addUserError = errors.New("bad")
+
+	err := auth.Signup(newUser, dep.dep)
 
 	require.NotNil(t, err)
 }
 
 func TestEmailError(t *testing.T) {
-	db := getTestDB(nil, nil, nil, nil)
 	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
-	emSpy := emailSpy{}
-	emSpy.result = errors.New("bad email error")
+	dep := getTestDependencies()
+	dep.emSpy.result = errors.New("bad email error")
 
-	err := auth.Signup(newUser, &db, func(_ string) error { return nil }, &emSpy)
+	err := auth.Signup(newUser, dep.dep)
 
 	require.NotNil(t, err)
 }
-func TestPasswordInvalid(t *testing.T) {
-	db := getTestDB(nil, nil, nil, nil)
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
 
-	err := auth.Signup(newUser, &db, func(_ string) error { return errors.New("bad bad bad") }, &emailSpy{})
+func TestPasswordInvalid(t *testing.T) {
+	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	dep := getTestDependencies()
+	dep.dep.PwValidator = func(_ string) error { return errors.New("bad") }
+
+	err := auth.Signup(newUser, dep.dep)
 
 	require.NotNil(t, err)
-	require.Contains(t, err.Message, "bad bad bad")
+	require.Contains(t, err.Message, "bad")
 }
