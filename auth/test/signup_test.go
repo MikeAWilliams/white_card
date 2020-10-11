@@ -63,9 +63,13 @@ func getTestDependencies() testDependencies {
 	return result
 }
 
+func getUser() auth.User {
+	return auth.User{Email: "e@example.com", Password: "whatever"}
+}
+
 func TestHappyPath(t *testing.T) {
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
 	dep := getTestDependencies()
+	newUser := getUser()
 
 	err := auth.Signup(newUser, dep.dep)
 
@@ -82,7 +86,7 @@ func TestHappyPath(t *testing.T) {
 }
 
 func TestAddUserError(t *testing.T) {
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	newUser := getUser()
 	dep := getTestDependencies()
 	dep.db.addUserError = errors.New("bad")
 
@@ -92,7 +96,7 @@ func TestAddUserError(t *testing.T) {
 }
 
 func TestEmailError(t *testing.T) {
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	newUser := getUser()
 	dep := getTestDependencies()
 	dep.emSpy.result = errors.New("bad email error")
 
@@ -102,7 +106,7 @@ func TestEmailError(t *testing.T) {
 }
 
 func TestPasswordInvalid(t *testing.T) {
-	newUser := auth.User{Email: "e@example.com", Password: "whatever"}
+	newUser := getUser()
 	dep := getTestDependencies()
 	dep.dep.PwValidator = func(_ string) error { return errors.New("bad") }
 
@@ -110,4 +114,18 @@ func TestPasswordInvalid(t *testing.T) {
 
 	require.NotNil(t, err)
 	require.Contains(t, err.Message, "bad")
+	exists, _ := dep.db.UserExists(newUser.Email)
+	require.False(t, exists)
+}
+
+func TestPasswordEncryptError(t *testing.T) {
+	newUser := getUser()
+	dep := getTestDependencies()
+	dep.pweSpy.result = errors.New("bad")
+
+	err := auth.Signup(newUser, dep.dep)
+
+	require.NotNil(t, err)
+	exists, _ := dep.db.UserExists(newUser.Email)
+	require.False(t, exists)
 }
